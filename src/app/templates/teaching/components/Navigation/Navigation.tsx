@@ -4,7 +4,29 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const Navigation = () => {
+interface NavigationProps {
+  logoText?: string;
+  logoColor?: string;
+  homeLink?: string;
+  aboutLink?: string;
+  storeLink?: string;
+  blogsLink?: string;
+  contactLink?: string;
+  buttonText?: string;
+  buttonColor?: string;
+}
+
+const Navigation: React.FC<NavigationProps> = ({
+  logoText = "FINX",
+  logoColor = "#032C3D",
+  homeLink = "/templates/teaching",
+  aboutLink = "/templates/teaching/about",
+  storeLink = "/templates/teaching/store",
+  blogsLink = "/templates/teaching/blogs",
+  contactLink = "/templates/teaching/contact",
+  buttonText = "Login",
+  buttonColor = "#08AD98",
+}) => {
   const pathname = usePathname();
 
   // Helper function to check if link is active
@@ -41,9 +63,9 @@ const Navigation = () => {
       >
         {/* Logo */}
         <Link
-          href="/templates/teaching"
+          href={homeLink}
           style={{
-            color: "#032C3D",
+            color: logoColor,
             fontFamily: "Roboto",
             fontSize: "36px",
             fontStyle: "normal",
@@ -59,10 +81,10 @@ const Navigation = () => {
                 "Roboto, -apple-system, Roboto, Helvetica, sans-serif",
               fontWeight: 700,
               fontSize: "36px",
-              color: "rgba(3,44,61,1)",
+              color: logoColor,
             }}
           >
-            FINX
+            {logoText}
           </span>
         </Link>
 
@@ -76,7 +98,7 @@ const Navigation = () => {
           }}
         >
           <Link
-            href="/templates/teaching"
+            href={homeLink}
             style={{
               display: "flex",
               padding: "10px",
@@ -93,11 +115,11 @@ const Navigation = () => {
                 fontFamily: "Poppins",
                 fontSize: "18px",
                 fontStyle: "normal",
-                fontWeight: isActive("/templates/teaching") ? 600 : 400,
+                fontWeight: isActive(homeLink) ? 600 : 400,
                 lineHeight: "40px",
                 fontFamily:
                   "Poppins, -apple-system, Roboto, Helvetica, sans-serif",
-                fontWeight: isActive("/templates/teaching") ? 700 : 400,
+                fontWeight: isActive(homeLink) ? 700 : 400,
                 color: "rgba(3,44,61,1)",
               }}
             >
@@ -106,7 +128,7 @@ const Navigation = () => {
           </Link>
 
           <Link
-            href="/templates/teaching/about"
+            href={aboutLink}
             style={{
               display: "flex",
               padding: "10px",
@@ -123,11 +145,11 @@ const Navigation = () => {
                 fontFamily: "Poppins",
                 fontSize: "18px",
                 fontStyle: "normal",
-                fontWeight: isActive("/templates/teaching/about") ? 600 : 400,
+                fontWeight: isActive(aboutLink) ? 600 : 400,
                 lineHeight: "40px",
                 fontFamily:
                   "Poppins, -apple-system, Roboto, Helvetica, sans-serif",
-                fontWeight: isActive("/templates/teaching/about") ? 700 : 400,
+                fontWeight: isActive(aboutLink) ? 700 : 400,
                 color: "rgba(3,44,61,1)",
               }}
             >
@@ -136,7 +158,7 @@ const Navigation = () => {
           </Link>
 
           <Link
-            href="/templates/teaching/store"
+            href={storeLink}
             style={{
               display: "flex",
               padding: "10px",
@@ -153,11 +175,11 @@ const Navigation = () => {
                 fontFamily: "Poppins",
                 fontSize: "18px",
                 fontStyle: "normal",
-                fontWeight: isActive("/templates/teaching/store") ? 600 : 400,
+                fontWeight: isActive(storeLink) ? 600 : 400,
                 lineHeight: "40px",
                 fontFamily:
                   "Poppins, -apple-system, Roboto, Helvetica, sans-serif",
-                fontWeight: isActive("/templates/teaching/store") ? 700 : 400,
+                fontWeight: isActive(storeLink) ? 700 : 400,
                 color: "rgba(3,44,61,1)",
               }}
             >
@@ -166,7 +188,7 @@ const Navigation = () => {
           </Link>
 
           <Link
-            href="/templates/teaching/blogs"
+            href={blogsLink}
             style={{
               display: "flex",
               padding: "10px",
@@ -183,11 +205,11 @@ const Navigation = () => {
                 fontFamily: "Poppins",
                 fontSize: "18px",
                 fontStyle: "normal",
-                fontWeight: isActive("/templates/teaching/blogs") ? 600 : 400,
+                fontWeight: isActive(blogsLink) ? 600 : 400,
                 lineHeight: "40px",
                 fontFamily:
                   "Poppins, -apple-system, Roboto, Helvetica, sans-serif",
-                fontWeight: isActive("/templates/teaching/blogs") ? 700 : 400,
+                fontWeight: isActive(blogsLink) ? 700 : 400,
                 color: "rgba(46,46,46,1)",
               }}
             >
@@ -196,7 +218,7 @@ const Navigation = () => {
           </Link>
 
           <Link
-            href="/templates/teaching/contact"
+            href={contactLink}
             style={{
               display: "flex",
               padding: "10px",
@@ -213,11 +235,11 @@ const Navigation = () => {
                 fontFamily: "Poppins",
                 fontSize: "18px",
                 fontStyle: "normal",
-                fontWeight: isActive("/templates/teaching/contact") ? 600 : 400,
+                fontWeight: isActive(contactLink) ? 600 : 400,
                 lineHeight: "40px",
                 fontFamily:
                   "Poppins, -apple-system, Roboto, Helvetica, sans-serif",
-                fontWeight: isActive("/templates/teaching/contact") ? 700 : 400,
+                fontWeight: isActive(contactLink) ? 700 : 400,
                 color: "rgba(46,46,46,1)",
               }}
             >
@@ -253,7 +275,7 @@ const Navigation = () => {
               alignItems: "center",
               gap: "16px",
               borderRadius: "10px",
-              background: "#08AD98",
+              background: buttonColor,
               position: "relative",
             }}
           >
@@ -270,7 +292,7 @@ const Navigation = () => {
                 letterSpacing: "0.32px",
               }}
             >
-              Login
+              {buttonText}
             </span>
           </div>
         </div>

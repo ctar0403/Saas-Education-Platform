@@ -5,7 +5,7 @@ import ValueStack from "./components/ValueStack/ValueStack";
 import PainPoint from "./components/PainPoint/PainPoint";
 import ExpertInfo from "./components/ExpertInfo/ExpertInfo";
 import ProgramInfo from "./components/ProgramInfo/ProgramInfo";
-import Testimonials from "./components/Testimonials/Testimonials";
+import FigmaTestimonials from "./components/Testimonials/FigmaTestimonials";
 import HowItWorks from "./components/HowItWorks/HowItWorks";
 import FreeAssessment from "./components/FreeAssessment/FreeAssessment";
 import WorthIt from "./components/WorthIt/WorthIt";
@@ -20,7 +20,7 @@ const TeachingPage = () => {
       <PainPoint />
       <ExpertInfo />
       <ProgramInfo />
-      <Testimonials />
+      <FigmaTestimonials />
       <HowItWorks />
       <FreeAssessment />
       <WorthIt />

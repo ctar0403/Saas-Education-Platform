@@ -1,8 +1,23 @@
 "use client";
 
 import React from "react";
+import FigmaButton from "../ui/FigmaButton";
 
-const Header = () => {
+interface HeaderProps {
+  backgroundImageUrl?: string;
+  heading?: string;
+  subheading?: string;
+  buttonText?: string;
+  buttonColor?: string;
+}
+
+const Header: React.FC<HeaderProps> = ({
+  backgroundImageUrl = "https://cdn.builder.io/api/v1/image/assets%2Fe7e4e054f28544f2a05c2ce9a547d52a%2F3cfbb8bd580d43aa8970e119417dacc9",
+  heading = "Are you a small business owner struggling to attract new customers?",
+  subheading = "Our proven strategies will help you build a strong online presence, generate quality leads, and convert them into loyal customers.",
+  buttonText = "Book your FREE consultation now",
+  buttonColor = "#08AD98",
+}) => {
   return (
     <div
       className="header-container"
@@ -15,8 +30,10 @@ const Header = () => {
         alignItems: "center",
         gap: "10px",
         alignSelf: "stretch",
-        background:
-          'url("https://cdn.builder.io/api/v1/image/assets%2Fe7e4e054f28544f2a05c2ce9a547d52a%2F3cfbb8bd580d43aa8970e119417dacc9")',
+        background: `url("${backgroundImageUrl}")`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
         position: "relative",
       }}
     >
@@ -46,7 +63,7 @@ const Header = () => {
             position: "relative",
           }}
         >
-          Are you a small business owner struggling to attract new customers?
+          {heading}
         </div>
 
         <div
@@ -63,48 +80,12 @@ const Header = () => {
             position: "relative",
           }}
         >
-          Our proven strategies will help you build a strong online presence,
-          generate quality leads, and convert them into loyal customers.
+          {subheading}
         </div>
 
-        <button
-          className="cta-button"
-          style={{
-            display: "flex",
-            padding: "16px",
-            justifyContent: "center",
-            alignItems: "center",
-            gap: "10px",
-            borderRadius: "10px",
-            background: "#08AD98",
-            position: "relative",
-            border: "none",
-            cursor: "pointer",
-            transition: "background-color 0.2s ease",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "#06967f";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "#08AD98";
-          }}
-        >
-          <div
-            className="button-text"
-            style={{
-              color: "#FFF",
-              fontFamily:
-                "Poppins, -apple-system, Roboto, Helvetica, sans-serif",
-              fontSize: "18px",
-              fontStyle: "normal",
-              fontWeight: 700,
-              lineHeight: "40px",
-              position: "relative",
-            }}
-          >
-            Book your FREE consultation now
-          </div>
-        </button>
+        <FigmaButton variant="primary" size="md">
+          {buttonText}
+        </FigmaButton>
       </div>
 
       <style jsx global>{`

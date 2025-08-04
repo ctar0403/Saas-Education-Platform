@@ -15,6 +15,8 @@ interface ProductCardProps {
   badge?: string;
   noImage?: boolean;
   icon?: string;
+  onClick?: () => void;
+  className?: string;
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({
@@ -29,6 +31,8 @@ const ProductCard: React.FC<ProductCardProps> = ({
   badge,
   noImage,
   icon,
+  onClick,
+  className = "",
 }) => {
   const renderIcon = () => {
     const iconClass = "w-16 h-16 text-[#08AD98]";
@@ -67,7 +71,10 @@ const ProductCard: React.FC<ProductCardProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-200">
+    <div
+      className={`bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-200 ${onClick ? 'cursor-pointer' : ''} ${className}`}
+      onClick={onClick}
+    >
       {/* Image or Icon Section */}
       <div className="relative">
         {noImage ? (

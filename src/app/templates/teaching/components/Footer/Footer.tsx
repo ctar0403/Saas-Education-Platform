@@ -1,25 +1,49 @@
 import React from "react";
 import { Instagram, Facebook, Twitter, Linkedin } from "lucide-react";
 
-const Footer = () => {
+interface FooterProps {
+  copyright?: string;
+  poweredByText?: string;
+  poweredByBrand?: string;
+  termsText?: string;
+  privacyText?: string;
+  instagramUrl?: string;
+  facebookUrl?: string;
+  twitterUrl?: string;
+  linkedinUrl?: string;
+  backgroundColor?: string;
+}
+
+const Footer: React.FC<FooterProps> = ({
+  copyright = "@2024 Kadnya",
+  poweredByText = "Powered By",
+  poweredByBrand = "Kadnya",
+  termsText = "Terms & Conditions",
+  privacyText = "Privacy Policy",
+  instagramUrl = "#",
+  facebookUrl = "#",
+  twitterUrl = "#",
+  linkedinUrl = "#",
+  backgroundColor = "#043A51",
+}) => {
   const socialIcons = [
     {
       icon: (
         <Instagram className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-white" />
       ),
-      href: "#",
+      href: instagramUrl,
     },
     {
       icon: (
         <Facebook className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-white" />
       ),
-      href: "#",
+      href: facebookUrl,
     },
     {
       icon: (
         <Twitter className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-white" />
       ),
-      href: "#",
+      href: twitterUrl,
     },
     {
       icon: (
@@ -47,15 +71,15 @@ const Footer = () => {
           <Linkedin className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-white" />
         </div>
       ),
-      href: "#",
+      href: linkedinUrl,
     },
   ];
 
   return (
-    <footer className="flex flex-col items-center px-4 sm:px-8 md:px-12 lg:px-20 py-12 sm:py-16 md:py-24 bg-[#043A51]">
+    <footer className="flex flex-col items-center px-4 sm:px-8 md:px-12 lg:px-20 py-12 sm:py-16 md:py-24" style={{ backgroundColor }}>
       <div className="flex flex-col items-center gap-4 sm:gap-6 w-full max-w-4xl text-center">
         <h3 className="w-full text-white font-poppins text-base sm:text-lg font-semibold leading-8 sm:leading-10">
-          @2024 Kadnya
+          {copyright}
         </h3>
 
         <div className="flex justify-center items-center gap-4 sm:gap-6 md:gap-8 w-full flex-wrap">
@@ -71,14 +95,14 @@ const Footer = () => {
         </div>
 
         <p className="w-full text-center font-poppins text-xs sm:text-sm font-normal leading-8 sm:leading-10">
-          <span className="text-white">Powered By </span>
-          <span className="text-[#08AD98]">Kadnya</span>
+          <span className="text-white">{poweredByText} </span>
+          <span className="text-[#08AD98]">{poweredByBrand}</span>
         </p>
 
         <p className="w-full text-white text-center font-poppins text-xs font-light leading-8 sm:leading-10 underline">
-          <span className="font-semibold">Terms & Conditions</span>
+          <span className="font-semibold">{termsText}</span>
           <span> | </span>
-          <span className="font-semibold">Privacy Policy</span>
+          <span className="font-semibold">{privacyText}</span>
         </p>
       </div>
     </footer>

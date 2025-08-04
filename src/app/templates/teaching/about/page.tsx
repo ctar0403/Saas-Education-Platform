@@ -6,7 +6,7 @@ import WhoIAm from "./components/WhoIAm/WhoIAm";
 import MyVision from "./components/MyVision/MyVision";
 import MyMission from "./components/MyMission/MyMission";
 import ServicesSection from "./components/ServicesSection/ServicesSection";
-import AboutTestimonials from "./components/AboutTestimonials/AboutTestimonials";
+import AboutTestimonialsCarousel from "./components/AboutTestimonials/AboutTestimonialsCarousel";
 import FAQ from "./components/FAQ/FAQ";
 import LightFooter from "../components/Footer/LightFooter";
 
@@ -20,7 +20,7 @@ const AboutPage = () => {
       <MyVision />
       <MyMission />
       <ServicesSection />
-      <AboutTestimonials />
+      <AboutTestimonialsCarousel />
       <FAQ />
       <LightFooter />
     </div>

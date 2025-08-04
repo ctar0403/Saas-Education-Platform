@@ -26,7 +26,17 @@ const AboutHero = () => {
         />
 
         {/* Dark Overlay */}
-        <div className="absolute inset-0 bg-black bg-opacity-40" />
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundColor: "#000000c2",
+            backgroundImage: "url(https://cdn.builder.io/api/v1/image/assets%2F046614d09b714830be9f4517b1d1f158%2Fdcfeaee1dcd149af91bc004ef92fd2fd)",
+            backgroundRepeat: "no-repeat",
+            backgroundPosition: "center",
+            backgroundSize: "cover",
+            minHeight: "14px"
+          }}
+        />
 
         {/* Content */}
         <div className="relative z-10 max-w-6xl mx-auto px-8 text-center text-white">

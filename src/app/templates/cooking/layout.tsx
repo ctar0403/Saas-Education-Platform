@@ -18,20 +18,16 @@ export const metadata: Metadata = {
   description: "e-learning cooking template for builder",
 };
 
-export default function RootLayout({
+export default function CookingLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        <Navbar />
-        {children}
-        <Footer />
-      </body>
-    </html>
+    <div className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <Navbar />
+      {children}
+      <Footer />
+    </div>
   );
 }
