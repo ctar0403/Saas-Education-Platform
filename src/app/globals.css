@@ -120,3 +120,16 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* AI Website Generator Styles */
+.gradient-text {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.ai-website-generator {
+  /* Smooth animations */
+  transition: all 0.3s ease;
+}

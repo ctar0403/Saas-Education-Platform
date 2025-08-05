@@ -8,13 +8,14 @@ import { Textarea } from "@/components/ui/textarea";
 import Image from "next/image";
 import { useState } from "react";
 import { Sparkles, Wand2, Layout, Code, Palette, Zap, ArrowRight, Building } from "lucide-react";
-import { AIWebsiteGenerator } from "@/lib/ai-website-generator";
+import KadnyaWebsiteBuilderService from "@/lib/services/kadnya-website-builder";
 
 export default function Home() {
   const [aiPrompt, setAiPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [notification, setNotification] = useState<{type: 'success' | 'info' | 'warning', message: string} | null>(null);
+  const [generationProgress, setGenerationProgress] = useState<{step: string; status: string; progress?: number} | null>(null);
 
   const handleAiGenerate = async () => {
     if (!aiPrompt.trim()) return;
@@ -22,20 +23,34 @@ export default function Home() {
     setIsGenerating(true);
 
     try {
-      console.log('🚀 Starting enhanced AI website generation...');
-      const generator = new AIWebsiteGenerator();
+      console.log('🚀 Starting Kadnya AI website generation...');
+      const kadnyaService = new KadnyaWebsiteBuilderService();
 
-      // Use the new enhanced generation flow with space creation
-      const result = await generator.generateWebsiteWithSpace(aiPrompt);
+      // Use Kadnya API to generate website with enhanced prompt
+      const result = await kadnyaService.generateWebsiteWithEnhancedPrompt(
+        aiPrompt,
+        undefined, // context
+        (progress) => {
+          // Update progress state
+          setGenerationProgress(progress);
+          console.log('🔄 Generation progress:', progress);
+        }
+      );
 
-      console.log('🎉 Website generation result:', result);
+      console.log('🎉 Kadnya website generation result:', result);
 
       // Show appropriate notification based on result
       if (result.success) {
         setShowSuccess(true);
         setNotification({
           type: 'success',
-          message: `${result.templateType.charAt(0).toUpperCase() + result.templateType.slice(1)} website generated with new Builder.io space!`
+          message: 'Website generated successfully with Kadnya AI!'
+        });
+      } else if (result.content && result.analysis) {
+        // Even if failed, if we have content, show it
+        setNotification({
+          type: 'warning',
+          message: 'Using demo mode - Kadnya API had issues but website still generated!'
         });
       } else {
         setNotification({
@@ -44,35 +59,71 @@ export default function Home() {
         });
       }
 
-      // Navigate to enhanced visual editor with space and template info
-      const params = new URLSearchParams({
-        prompt: aiPrompt,
-        analysis: JSON.stringify(result.analysis),
-        content: JSON.stringify(result.content),
-        pageId: result.pageId,
-        spaceId: result.spaceId,
-        apiKey: result.apiKey,
-        templateType: result.templateType,
-        internal: 'true'
-      });
+      // Navigate to website preview with generated content (even if API failed but we have fallback)
+      if (result.content && result.analysis) {
+        const previewParams = new URLSearchParams({
+          prompt: result.enhancedPrompt || aiPrompt,
+          analysis: JSON.stringify(result.analysis),
+          content: JSON.stringify(result.content),
+          apiResponse: JSON.stringify(result.template),
+          source: result.success ? 'kadnya-api' : 'kadnya-fallback'
+        });
 
-      const editorUrl = `/visual-editor?${params.toString()}`;
-      console.log('🎨 Opening enhanced visual editor:', editorUrl);
-      window.open(editorUrl, '_blank');
+        const previewUrl = `/preview/${result.pageId}?${previewParams.toString()}`;
+        console.log('🎨 Opening generated website preview:', previewUrl);
+        window.open(previewUrl, '_blank');
+      } else {
+        // Only use this fallback if we have no content at all
+        throw new Error(result.error || 'No content generated');
+      }
 
-      // Clear notifications
+      // Clear notifications and progress
       setTimeout(() => {
         setShowSuccess(false);
         setNotification(null);
+        setGenerationProgress(null);
       }, 4000);
 
     } catch (error) {
-      console.error('❌ AI Generation Error:', error);
-      // Even on error, show the visual editor with what we have
-      const encodedPrompt = encodeURIComponent(aiPrompt);
-      const fallbackUrl = `/visual-editor?prompt=${encodedPrompt}&internal=true`;
-      console.log('Using fallback URL:', fallbackUrl);
+      console.error('❌ Kadnya AI Generation Error:', error);
+
+      // Show error notification but still provide fallback
+      setNotification({
+        type: 'warning',
+        message: 'Connection issue - showing demo version'
+      });
+
+      // Create fallback demo website
+      const fallbackContent = {
+        title: 'Demo Website',
+        description: 'Generated website demo',
+        heroHeading: 'Your Website Is Ready!',
+        heroSubheading: 'Check out this demo version of your generated website',
+        sections: []
+      };
+      const fallbackAnalysis = {
+        websiteType: 'business',
+        industry: 'general',
+        targetAudience: 'general',
+        features: [],
+        colorScheme: 'blue',
+        tone: 'professional',
+        pages: ['home']
+      };
+
+      const fallbackParams = new URLSearchParams({
+        prompt: aiPrompt,
+        analysis: JSON.stringify(fallbackAnalysis),
+        content: JSON.stringify(fallbackContent),
+        source: 'fallback'
+      });
+
+      const fallbackUrl = `/preview/demo-${Date.now()}?${fallbackParams.toString()}`;
+      console.log('Using fallback preview URL:', fallbackUrl);
       window.open(fallbackUrl, '_blank');
+
+      // Clear progress on error
+      setGenerationProgress(null);
     }
 
     setIsGenerating(false);
@@ -176,14 +227,28 @@ export default function Home() {
                     {isGenerating ? (
                       <div className="flex items-center gap-2">
                         <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin"></div>
-                        Generating...
+                        <div className="text-left">
+                          <div className="font-semibold">
+                            {generationProgress?.step === 'enhance' && 'Enhancing prompt...'}
+                            {generationProgress?.step === 'generate' && 'Starting generation...'}
+                            {generationProgress?.step === 'processing' && 'AI is working...'}
+                            {generationProgress?.step === 'complete' && 'Finalizing...'}
+                            {!generationProgress && 'Connecting to Kadnya AI...'}
+                          </div>
+                          {generationProgress?.status && (
+                            <div className="text-xs opacity-75">
+                              Status: {generationProgress.status}
+                              {generationProgress.progress && ` (${generationProgress.progress}%)`}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ) : showSuccess ? (
                       <div className="flex items-center gap-2">
                         <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
                           <span className="text-white text-xs">✓</span>
                         </div>
-                        {notification?.message || 'Website Generated! Check New Tab'}
+                        {notification?.message || 'Website Generated! Opening Preview...'}
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
@@ -255,17 +320,34 @@ export default function Home() {
                 </div>
               </div>
 
-              <Button
-                onClick={handleVisualEditor}
-                size="lg"
-                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold py-4 rounded-xl text-lg transition-all duration-300 group"
-              >
-                <div className="flex items-center gap-3">
-                  <Building className="w-6 h-6" />
-                  Go to Visual Editor Panel
-                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                </div>
-              </Button>
+              <div className="space-y-3">
+                <Button
+                  onClick={handleVisualEditor}
+                  size="lg"
+                  className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold py-4 rounded-xl text-lg transition-all duration-300 group"
+                >
+                  <div className="flex items-center gap-3">
+                    <Building className="w-6 h-6" />
+                    Go to Visual Editor Panel
+                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </Button>
+
+                <Button
+                  asChild
+                  size="lg"
+                  variant="outline"
+                  className="w-full border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50 font-semibold py-4 rounded-xl text-lg transition-all duration-300 group"
+                >
+                  <Link href="/ai-website-generator">
+                    <div className="flex items-center gap-3">
+                      <Sparkles className="w-6 h-6" />
+                      AI Website Generator
+                      <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                    </div>
+                  </Link>
+                </Button>
+              </div>
             </div>
 
             <div className="relative">

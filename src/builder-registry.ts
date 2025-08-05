@@ -98,6 +98,15 @@ import CourseList from "./components/dynamic/CourseList/CourseList";
 import ProductList from "./components/dynamic/ProductList/ProductList";
 import BlogList from "./components/dynamic/BlogList/BlogList";
 
+// ============= GENERIC BUILDER COMPONENTS =============
+import {
+  AboutSection,
+  FeaturesGrid,
+  TestimonialsSection,
+  ContactForm,
+  GenericFooter
+} from "./components/GenericBuilderComponents/GenericComponents";
+
 builder.init(process.env.NEXT_PUBLIC_BUILDER_API_KEY!);
 
 // ============= UI COMPONENTS =============
