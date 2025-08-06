@@ -27,7 +27,7 @@ export class AIWebsiteGenerator {
 
   constructor(apiKey?: string, spaceId?: string) {
     this.apiKey = apiKey || process.env.NEXT_PUBLIC_BUILDER_API_KEY || '';
-    this.spaceId = spaceId || process.env.NEXT_PUBLIC_BUILDER_SPACE_ID || 'dab30bfb91004dd2b3bb838b92ceeb9d';
+    this.spaceId = spaceId || process.env.NEXT_PUBLIC_BUILDER_SPACE_ID || 'ab5b460294654ac49703c8715debb464';
   }
 
   // Analyze the user prompt to understand requirements
@@ -224,7 +224,7 @@ export class AIWebsiteGenerator {
 
     try {
       const builderApiKey = this.apiKey || process.env.NEXT_PUBLIC_BUILDER_API_KEY;
-      const builderSpaceId = this.spaceId || process.env.NEXT_PUBLIC_BUILDER_SPACE_ID || 'dab30bfb91004dd2b3bb838b92ceeb9d';
+      const builderSpaceId = this.spaceId || process.env.NEXT_PUBLIC_BUILDER_SPACE_ID || 'ab5b460294654ac49703c8715debb464';
 
       if (!builderApiKey) {
         console.log('No Builder API key found, creating mock page');

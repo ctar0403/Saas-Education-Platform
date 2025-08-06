@@ -6,16 +6,85 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Sparkles, Wand2, Layout, Code, Palette, Zap, ArrowRight, Building } from "lucide-react";
 import KadnyaWebsiteBuilderService from "@/lib/services/kadnya-website-builder";
+import WebsiteToBuilderService from "@/lib/services/website-to-builder";
+import { safeLocalStorageGet, safeLocalStorageSet, safeLocalStorageRemove } from "@/lib/utils/defensive-helpers";
 
 export default function Home() {
+  const router = useRouter();
   const [aiPrompt, setAiPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [notification, setNotification] = useState<{type: 'success' | 'info' | 'warning', message: string} | null>(null);
   const [generationProgress, setGenerationProgress] = useState<{step: string; status: string; progress?: number} | null>(null);
+  const [forceDemoMode, setForceDemoMode] = useState(false);
+  const [timeoutPatience, setTimeoutPatience] = useState<'patient' | 'normal' | 'quick'>('normal');
+  const [backendStatus, setBackendStatus] = useState({
+    autoSkipped: false,
+    emergencyMode: false,
+    failures: 0,
+    timeLeft: 0,
+    isLoaded: false
+  });
+
+  // Check backend status after component mounts to avoid hydration issues
+  useEffect(() => {
+    const getBackendStatus = () => {
+      try {
+        // Defensive check for localStorage availability
+        if (typeof window === 'undefined' || !window.localStorage) {
+          return { autoSkipped: false, emergencyMode: false, failures: 0, timeLeft: 0, isLoaded: true };
+        }
+
+        // Check for emergency mode first
+        const emergencyMode = safeLocalStorageGet('kadnya_emergency_mode');
+        const emergencyTime = safeLocalStorageGet('kadnya_emergency_time');
+
+        if (emergencyMode === 'true' && emergencyTime) {
+          const emergencyStart = parseInt(emergencyTime, 10);
+          const twoHoursLater = emergencyStart + (2 * 60 * 60 * 1000);
+          const timeLeft = Math.ceil((twoHoursLater - Date.now()) / 60000);
+
+          if (timeLeft > 0) {
+            return {
+              autoSkipped: true,
+              emergencyMode: true,
+              failures: parseInt(safeLocalStorageGet('kadnya_backend_failures') || '0', 10),
+              timeLeft,
+              isLoaded: true
+            };
+          }
+        }
+
+        // Check normal failure mode
+        const failures = safeLocalStorageGet('kadnya_backend_failures');
+        const lastFailure = safeLocalStorageGet('kadnya_last_failure_time');
+        if (failures && lastFailure) {
+          const failureCount = parseInt(failures, 10);
+          const lastFailureTime = parseInt(lastFailure, 10);
+          const twoHoursAgo = Date.now() - (2 * 60 * 60 * 1000);
+
+          if (failureCount > 0 && lastFailureTime > twoHoursAgo) {
+            return {
+              autoSkipped: true,
+              emergencyMode: false,
+              failures: failureCount,
+              timeLeft: Math.ceil((lastFailureTime + 2 * 60 * 60 * 1000 - Date.now()) / 60000),
+              isLoaded: true
+            };
+          }
+        }
+      } catch {
+        // Ignore errors
+      }
+      return { autoSkipped: false, emergencyMode: false, failures: 0, timeLeft: 0, isLoaded: true };
+    };
+
+    setBackendStatus(getBackendStatus());
+  }, []);
 
   const handleAiGenerate = async () => {
     if (!aiPrompt.trim()) return;
@@ -24,7 +93,132 @@ export default function Home() {
 
     try {
       console.log('🚀 Starting Kadnya AI website generation...');
+
+      // Check emergency mode immediately before any backend calls (don't wait for useEffect)
+      const isEmergencyMode = (() => {
+        try {
+          // Direct localStorage access - this is safe in click handlers
+          const emergencyMode = safeLocalStorageGet('kadnya_emergency_mode');
+          const emergencyTime = safeLocalStorageGet('kadnya_emergency_time');
+          if (emergencyMode === 'true' && emergencyTime) {
+            const emergencyStart = parseInt(emergencyTime, 10);
+            const twoHoursLater = emergencyStart + (2 * 60 * 60 * 1000);
+            const timeLeft = Math.ceil((twoHoursLater - Date.now()) / 60000);
+            console.log(`🚨 Emergency mode check: ${timeLeft} minutes remaining`);
+            return timeLeft > 0;
+          }
+          return false;
+        } catch (e) {
+          console.warn('Emergency mode check failed:', e);
+          return false;
+        }
+      })();
+
+      // Also check for recent failures
+      const hasRecentFailures = (() => {
+        try {
+          const failures = safeLocalStorageGet('kadnya_backend_failures');
+          const lastFailure = safeLocalStorageGet('kadnya_last_failure_time');
+          if (failures && lastFailure) {
+            const failureCount = parseInt(failures, 10);
+            const lastFailureTime = parseInt(lastFailure, 10);
+            const twoHoursAgo = Date.now() - (2 * 60 * 60 * 1000);
+            const hasFailures = failureCount > 0 && lastFailureTime > twoHoursAgo;
+            console.log(`🔍 Recent failures check: ${failureCount} failures, hasRecentFailures: ${hasFailures}`);
+            return hasFailures;
+          }
+          return false;
+        } catch (e) {
+          console.warn('Recent failures check failed:', e);
+          return false;
+        }
+      })();
+
+      // Full API mode logic - use backend unless there are specific issues
+      const shouldUseDemoMode = forceDemoMode || isEmergencyMode || hasRecentFailures;
+
+      console.log(`🎯 Generation mode decision: forceDemoMode=${forceDemoMode}, isEmergencyMode=${isEmergencyMode}, hasRecentFailures=${hasRecentFailures}, shouldUseDemoMode=${shouldUseDemoMode}`);
+
+      if (shouldUseDemoMode) {
+        console.log('⚡ Using immediate demo mode');
+        setNotification({
+          type: 'info',
+          message: forceDemoMode
+            ? 'Fast demo mode selected - generating website instantly!'
+            : 'Using fast demo mode - backend issues detected'
+        });
+
+        // Generate demo content immediately
+        const demoContent = {
+          title: 'Demo Website',
+          description: 'AI-generated demo website',
+          heroHeading: 'Your Demo Website is Ready!',
+          heroSubheading: 'This is a demo version of your website. All editing features are available!',
+          sections: []
+        };
+        const demoAnalysis = {
+          websiteType: 'business',
+          industry: 'general',
+          targetAudience: 'general',
+          features: [],
+          colorScheme: 'blue',
+          tone: 'professional',
+          pages: ['home']
+        };
+
+        const demoPageId = `demo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+        // Create Builder.io page for demo
+        console.log('🏗️ Creating Builder.io page for demo website...');
+        const builderService = new WebsiteToBuilderService();
+        const builderResult = await builderService.createBuilderPageFromWebsite({
+          content: demoContent,
+          analysis: demoAnalysis,
+          prompt: aiPrompt,
+          pageId: demoPageId
+        });
+
+        if (builderResult.success) {
+          console.log('✅ Builder.io page created, navigating to editor:', builderResult.editorUrl);
+          setNotification({
+            type: 'success',
+            message: 'Demo website created in Builder.io! Opening visual editor...'
+          });
+          // Navigate directly to Builder.io editor
+          window.open(builderResult.editorUrl, '_blank');
+        } else {
+          console.warn('⚠️ Builder.io creation failed, using preview fallback');
+          // Fallback to preview page
+          const previewParams = new URLSearchParams({
+            prompt: aiPrompt,
+            analysis: JSON.stringify(demoAnalysis),
+            content: JSON.stringify(demoContent),
+            source: 'fast-demo'
+          });
+          const previewUrl = `/preview/${demoPageId}?${previewParams.toString()}`;
+          router.push(previewUrl);
+        }
+
+        setShowSuccess(true);
+
+        // Clear notifications and progress
+        setTimeout(() => {
+          setShowSuccess(false);
+          setNotification(null);
+          setGenerationProgress(null);
+        }, 4000);
+
+        setIsGenerating(false);
+        return;
+      }
+
+      // Full Kadnya API Mode
+      console.log('🚀 Using full Kadnya API mode - will enhance prompt and generate website');
       const kadnyaService = new KadnyaWebsiteBuilderService();
+
+      // Configure timeout based on user preference
+      const timeoutMinutes = timeoutPatience === 'quick' ? 2 : timeoutPatience === 'patient' ? 10 : 5;
+      console.log(`⏱️ Using ${timeoutPatience} patience setting: ${timeoutMinutes} minute timeout`);
 
       // Use Kadnya API to generate website with enhanced prompt
       const result = await kadnyaService.generateWebsiteWithEnhancedPrompt(
@@ -34,7 +228,9 @@ export default function Home() {
           // Update progress state
           setGenerationProgress(progress);
           console.log('🔄 Generation progress:', progress);
-        }
+        },
+        forceDemoMode, // skip backend if forced
+        timeoutMinutes // user-configurable timeout
       );
 
       console.log('🎉 Kadnya website generation result:', result);
@@ -44,13 +240,23 @@ export default function Home() {
         setShowSuccess(true);
         setNotification({
           type: 'success',
-          message: 'Website generated successfully with Kadnya AI!'
+          message: 'Website generated with Kadnya AI and created in Builder.io!'
         });
       } else if (result.content && result.analysis) {
         // Even if failed, if we have content, show it
+        const isTimeout = result.error?.includes('timeout') || result.error?.includes('stuck');
+        const isBackendIssue = result.error?.includes('PENDING') || result.error?.includes('overloaded');
+        const isSkipped = result.backendSkipped || result.error?.includes('skipped');
+
         setNotification({
           type: 'warning',
-          message: 'Using demo mode - Kadnya API had issues but website still generated!'
+          message: forceDemoMode
+            ? 'Fast demo mode activated - website generated instantly!'
+            : isSkipped
+            ? 'Auto-switched to demo mode - Kadnya servers detected as unreliable!'
+            : (isTimeout || isBackendIssue)
+            ? 'Kadnya AI servers are busy - generated demo website instead!'
+            : 'Using demo mode - Kadnya API had issues but website still generated!'
         });
       } else {
         setNotification({
@@ -59,19 +265,39 @@ export default function Home() {
         });
       }
 
-      // Navigate to website preview with generated content (even if API failed but we have fallback)
+      // Create Builder.io page and navigate to editor
       if (result.content && result.analysis) {
-        const previewParams = new URLSearchParams({
+        console.log('🏗️ Creating Builder.io page for generated website...');
+        const builderService = new WebsiteToBuilderService();
+        const builderResult = await builderService.createBuilderPageFromWebsite({
+          content: result.content,
+          analysis: result.analysis,
           prompt: result.enhancedPrompt || aiPrompt,
-          analysis: JSON.stringify(result.analysis),
-          content: JSON.stringify(result.content),
-          apiResponse: JSON.stringify(result.template),
-          source: result.success ? 'kadnya-api' : 'kadnya-fallback'
+          pageId: result.pageId
         });
 
-        const previewUrl = `/preview/${result.pageId}?${previewParams.toString()}`;
-        console.log('🎨 Opening generated website preview:', previewUrl);
-        window.open(previewUrl, '_blank');
+        if (builderResult.success) {
+          console.log('✅ Builder.io page created, navigating to editor:', builderResult.editorUrl);
+          setNotification({
+            type: 'success',
+            message: 'Website created in Builder.io! Opening visual editor...'
+          });
+          // Navigate directly to Builder.io editor
+          window.open(builderResult.editorUrl, '_blank');
+        } else {
+          console.warn('⚠️ Builder.io creation failed, using preview fallback');
+          // Fallback to preview page
+          const previewParams = new URLSearchParams({
+            prompt: result.enhancedPrompt || aiPrompt,
+            analysis: JSON.stringify(result.analysis),
+            content: JSON.stringify(result.content),
+            apiResponse: JSON.stringify(result.template),
+            source: result.success ? 'kadnya-api' : 'kadnya-fallback',
+            builderError: builderResult.error || 'Builder.io integration failed'
+          });
+          const previewUrl = `/preview/${result.pageId}?${previewParams.toString()}`;
+          router.push(previewUrl);
+        }
       } else {
         // Only use this fallback if we have no content at all
         throw new Error(result.error || 'No content generated');
@@ -118,9 +344,30 @@ export default function Home() {
         source: 'fallback'
       });
 
-      const fallbackUrl = `/preview/demo-${Date.now()}?${fallbackParams.toString()}`;
-      console.log('Using fallback preview URL:', fallbackUrl);
-      window.open(fallbackUrl, '_blank');
+      // Try to create Builder.io page even for fallback
+      const fallbackPageId = `fallback-${Date.now()}`;
+      try {
+        const builderService = new WebsiteToBuilderService();
+        const builderResult = await builderService.createBuilderPageFromWebsite({
+          content: fallbackContent,
+          analysis: fallbackAnalysis,
+          prompt: aiPrompt,
+          pageId: fallbackPageId
+        });
+
+        if (builderResult.success) {
+          console.log('✅ Fallback Builder.io page created:', builderResult.editorUrl);
+          window.open(builderResult.editorUrl, '_blank');
+          return;
+        }
+      } catch (builderError) {
+        console.warn('⚠️ Fallback Builder.io creation failed:', builderError);
+      }
+
+      // Final fallback to preview page
+      const fallbackUrl = `/preview/${fallbackPageId}?${fallbackParams.toString()}`;
+      console.log('Navigating to fallback preview URL:', fallbackUrl);
+      router.push(fallbackUrl);
 
       // Clear progress on error
       setGenerationProgress(null);
@@ -130,11 +377,28 @@ export default function Home() {
   };
 
   const handleVisualEditor = () => {
-    window.open('/visual-editor', '_blank');
+    router.push('/visual-editor');
   };
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
+      {/* Backend Status Banner - Only show when there are actual issues */}
+      {(backendStatus.isLoaded && backendStatus.autoSkipped) && (
+        <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-40 px-6 py-3 rounded-lg shadow-lg max-w-2xl ${
+          backendStatus.emergencyMode ? 'bg-red-500' : 'bg-orange-500'
+        } text-white`}>
+          <div className="flex items-center gap-2">
+            <span>{backendStatus.emergencyMode ? '🚨' : '⚠️'}</span>
+            <span className="text-sm font-medium">
+              {backendStatus.emergencyMode
+                ? `Emergency Mode: Backend disabled (${backendStatus.timeLeft}min remaining)`
+                : `Backend auto-disabled due to failures (${backendStatus.timeLeft}min remaining)`
+              }
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Notification Banner */}
       {notification && (
         <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded-lg shadow-lg max-w-md ${
@@ -197,19 +461,150 @@ export default function Home() {
                     className="w-full bg-white/20 border-white/30 text-white placeholder:text-purple-200 rounded-xl text-lg resize-none"
                   />
 
+                  {/* Backend Status & Demo Mode Toggle */}
+                  <div className="space-y-2">
+                    {backendStatus.isLoaded && backendStatus.autoSkipped && (
+                      <div className={`flex items-center justify-between gap-2 p-2 rounded-lg border ${
+                        backendStatus.emergencyMode
+                          ? 'bg-red-500/20 border-red-400/30'
+                          : 'bg-orange-500/20 border-orange-400/30'
+                      }`}>
+                        <span className={`text-xs ${
+                          backendStatus.emergencyMode ? 'text-red-200' : 'text-orange-200'
+                        }`}>
+                          {backendStatus.emergencyMode ? '🚨' : '⚠️'} Kadnya AI {backendStatus.emergencyMode ? 'EMERGENCY MODE' : 'auto-disabled'} ({backendStatus.failures} failures) - will retry in {backendStatus.timeLeft}min
+                        </span>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => {
+                              try {
+                                const emergencyMode = safeLocalStorageGet('kadnya_emergency_mode');
+                                const emergencyTime = safeLocalStorageGet('kadnya_emergency_time');
+                                const failures = safeLocalStorageGet('kadnya_backend_failures');
+                                const lastFailure = safeLocalStorageGet('kadnya_last_failure_time');
+
+                                console.log('🔍 Current backend status:');
+                                console.log('Emergency mode:', emergencyMode);
+                                console.log('Emergency time:', emergencyTime ? new Date(parseInt(emergencyTime)).toLocaleString() : 'none');
+                                console.log('Failures:', failures);
+                                console.log('Last failure:', lastFailure ? new Date(parseInt(lastFailure)).toLocaleString() : 'none');
+
+                                alert(`Emergency: ${emergencyMode}\nFailures: ${failures}\nLast failure: ${lastFailure ? new Date(parseInt(lastFailure)).toLocaleString() : 'none'}`);
+                              } catch (e) {
+                                console.error('Debug failed:', e);
+                              }
+                            }}
+                            className="text-xs px-2 py-1 bg-blue-400/30 hover:bg-blue-400/50 text-blue-100 rounded transition-colors"
+                          >
+                            Debug
+                          </button>
+                          <button
+                            onClick={() => {
+                              try {
+                                safeLocalStorageRemove('kadnya_backend_failures');
+                                safeLocalStorageRemove('kadnya_last_failure_time');
+                                safeLocalStorageRemove('kadnya_emergency_mode');
+                                safeLocalStorageRemove('kadnya_emergency_time');
+                                window.location.reload(); // Refresh to update status
+                              } catch {
+                                // Ignore errors
+                              }
+                            }}
+                            className={`text-xs px-2 py-1 rounded transition-colors ${
+                              backendStatus.emergencyMode
+                                ? 'bg-red-400/30 hover:bg-red-400/50 text-red-100'
+                                : 'bg-orange-400/30 hover:bg-orange-400/50 text-orange-100'
+                            }`}
+                          >
+                            Reset
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-3 p-3 bg-white/10 rounded-lg border border-white/20">
+                      <input
+                        type="checkbox"
+                        id="forceDemoMode"
+                        checked={forceDemoMode || backendStatus.autoSkipped}
+                        onChange={(e) => setForceDemoMode(e.target.checked)}
+                        disabled={backendStatus.autoSkipped}
+                        className="w-4 h-4 text-yellow-400 bg-white/20 border-white/30 rounded focus:ring-yellow-300 focus:ring-2 disabled:opacity-50"
+                      />
+                      <div>
+                        <label htmlFor="forceDemoMode" className="text-sm text-white/90 cursor-pointer">
+                          ⚡ Fast Demo Mode (skip Kadnya API and generate instantly)
+                        </label>
+                        <div className="text-xs text-white/70 mt-1">
+                          {backendStatus.autoSkipped
+                            ? 'Demo mode forced due to backend issues - will auto-retry later'
+                            : 'Enable to skip API calls for instant results, or uncheck for full Kadnya AI generation'
+                          }
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Timeout Patience Setting - only show when not in demo mode */}
+                    {!forceDemoMode && !backendStatus.autoSkipped && (
+                      <div className="space-y-2 p-3 bg-white/5 rounded-lg border border-white/10">
+                        <label className="text-sm text-white/90 font-medium">⏱️ Generation Patience</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setTimeoutPatience('quick')}
+                            className={`px-3 py-2 rounded-lg text-xs transition-colors ${
+                              timeoutPatience === 'quick'
+                                ? 'bg-orange-500 text-white'
+                                : 'bg-white/10 text-white/70 hover:bg-white/20'
+                            }`}
+                          >
+                            🚀 Quick (2 min)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setTimeoutPatience('normal')}
+                            className={`px-3 py-2 rounded-lg text-xs transition-colors ${
+                              timeoutPatience === 'normal'
+                                ? 'bg-blue-500 text-white'
+                                : 'bg-white/10 text-white/70 hover:bg-white/20'
+                            }`}
+                          >
+                            ⏰ Normal (5 min)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setTimeoutPatience('patient')}
+                            className={`px-3 py-2 rounded-lg text-xs transition-colors ${
+                              timeoutPatience === 'patient'
+                                ? 'bg-green-500 text-white'
+                                : 'bg-white/10 text-white/70 hover:bg-white/20'
+                            }`}
+                          >
+                            🧘 Patient (10 min)
+                          </button>
+                        </div>
+                        <div className="text-xs text-white/60">
+                          {timeoutPatience === 'quick' && 'Best for testing - faster timeout if backend is slow'}
+                          {timeoutPatience === 'normal' && 'Recommended - balanced between speed and reliability'}
+                          {timeoutPatience === 'patient' && 'Best for complex sites - waits longer for high-quality results'}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Sample Prompts */}
                   <div className="flex flex-wrap gap-2">
                     <button
                       onClick={() => setAiPrompt("Create a modern cooking website with recipes, blog, and cooking courses")}
                       className="px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/30 rounded-lg text-sm text-white transition-colors"
                     >
-                      🍳 Cooking Site
+                      ��� Cooking Site
                     </button>
                     <button
                       onClick={() => setAiPrompt("Build a professional teaching platform with courses, testimonials, and free assessment")}
                       className="px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/30 rounded-lg text-sm text-white transition-colors"
                     >
-                      🎓 Teaching Platform
+                      ���� Teaching Platform
                     </button>
                     <button
                       onClick={() => setAiPrompt("Design a portfolio website for a photographer with dark theme and image gallery")}
@@ -231,13 +626,33 @@ export default function Home() {
                           <div className="font-semibold">
                             {generationProgress?.step === 'enhance' && 'Enhancing prompt...'}
                             {generationProgress?.step === 'generate' && 'Starting generation...'}
-                            {generationProgress?.step === 'processing' && 'AI is working...'}
+                            {generationProgress?.step === 'processing' && (
+                              generationProgress?.status === 'DELAYED'
+                                ? `AI server is busy, please wait... (up to ${timeoutPatience === 'quick' ? '2' : timeoutPatience === 'patient' ? '10' : '5'} min)`
+                                : 'AI is working...'
+                            )}
                             {generationProgress?.step === 'complete' && 'Finalizing...'}
-                            {!generationProgress && 'Connecting to Kadnya AI...'}
+                            {generationProgress?.step === 'fallback' && (
+                              generationProgress?.status === 'SKIPPED'
+                                ? 'Using fast demo mode...'
+                                : 'Creating demo website...'
+                            )}
+                            {!generationProgress && (
+                              forceDemoMode || backendStatus.autoSkipped
+                                ? 'Generating demo website...'
+                                : 'Connecting to Kadnya AI...'
+                            )}
                           </div>
                           {generationProgress?.status && (
                             <div className="text-xs opacity-75">
-                              Status: {generationProgress.status}
+                              {generationProgress.status === 'DELAYED' && '⏳ Server processing delay'}
+                              {generationProgress.status === 'PENDING' && '⏳ Waiting in queue'}
+                              {generationProgress.status === 'PROGRESS' && '🔄 Generating content'}
+                              {generationProgress.status === 'COMPLETED' && '✅ Ready'}
+                              {generationProgress.status === 'TIMEOUT' && '⚠️ Using demo mode'}
+                              {generationProgress.status === 'SKIPPED' && '⚡ Fast mode active'}
+                              {!['DELAYED', 'PENDING', 'PROGRESS', 'COMPLETED', 'TIMEOUT', 'SKIPPED'].includes(generationProgress.status || '') &&
+                                `Status: ${generationProgress.status}`}
                               {generationProgress.progress && ` (${generationProgress.progress}%)`}
                             </div>
                           )}
@@ -252,8 +667,11 @@ export default function Home() {
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
-                        <Sparkles className="w-5 h-5" />
-                        Generate Website with AI
+                        <Zap className="w-5 h-5" />
+                        {forceDemoMode || backendStatus.autoSkipped
+                          ? 'Generate Demo Website (Fast Mode)'
+                          : 'Generate Website with Kadnya AI'
+                        }
                       </div>
                     )}
                   </Button>
@@ -389,6 +807,7 @@ export default function Home() {
                     src="/mobile_hero_section.png"
                     alt="Cooking Template"
                     fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                     className="object-cover object-center group-hover:scale-110 transition-transform duration-500"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
@@ -421,6 +840,7 @@ export default function Home() {
                     src="/about_hero_section.png"
                     alt="Teaching Template"
                     fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                     className="object-cover object-center group-hover:scale-110 transition-transform duration-500"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>

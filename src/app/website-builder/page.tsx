@@ -36,8 +36,8 @@ export default function WebsiteBuilderPage() {
   useEffect(() => {
     // Check if configuration is available from environment or localStorage
     const openaiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY || localStorage.getItem('openai_api_key') || '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';
-    const builderKey = process.env.NEXT_PUBLIC_BUILDER_API_KEY || localStorage.getItem('builder_api_key') || 'dab30bfb91004dd2b3bb838b92ceeb9d';
-    const builderSpace = process.env.NEXT_PUBLIC_BUILDER_SPACE_ID || localStorage.getItem('builder_space_id') || 'dab30bfb91004dd2b3bb838b92ceeb9d';
+    const builderKey = process.env.NEXT_PUBLIC_BUILDER_API_KEY || localStorage.getItem('builder_api_key') || 'ab5b460294654ac49703c8715debb464';
+    const builderSpace = process.env.NEXT_PUBLIC_BUILDER_SPACE_ID || localStorage.getItem('builder_space_id') || 'ab5b460294654ac49703c8715debb464';
 
     if (openaiKey && builderKey && builderSpace) {
       setConfig({

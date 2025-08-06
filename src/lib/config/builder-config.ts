@@ -1,5 +1,5 @@
 export const BUILDER_CONFIG = {
-  API_KEY: 'dab30bfb91004dd2b3bb838b92ceeb9d',
+  API_KEY: 'ab5b460294654ac49703c8715debb464',
   BASE_URL: 'https://builder.io/api/v1',
   ENDPOINTS: {
     CREATE_PAGE: '/content',

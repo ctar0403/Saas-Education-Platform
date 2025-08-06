@@ -24,6 +24,56 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              // Suppress FullStory namespace warnings
+              window["_fs_namespace"] = "FS";
+
+              // Suppress frequent console warnings/errors for better development experience
+              const originalConsoleWarn = console.warn;
+              const originalConsoleError = console.error;
+
+              console.warn = function(...args) {
+                const message = args[0];
+                if (typeof message === 'string') {
+                  // Suppress FullStory namespace warnings
+                  if (message.includes('FullStory namespace conflict')) {
+                    return;
+                  }
+                  // Suppress MobX array access warnings (from Builder.io platform)
+                  if (message.includes('[mobx.array] Attempt to read an array index')) {
+                    return;
+                  }
+                  // Suppress other noisy platform warnings
+                  if (message.includes('potential listener LEAK detected')) {
+                    return;
+                  }
+                }
+                originalConsoleWarn.apply(console, args);
+              };
+
+              console.error = function(...args) {
+                const message = args[0];
+                if (typeof message === 'string') {
+                  // Suppress cookie/sandbox errors from Builder.io platform
+                  if (message.includes('Failed to read the \\'cookie\\' property') ||
+                      message.includes('document is sandboxed')) {
+                    return;
+                  }
+                  // Suppress screenshot errors from Builder.io platform
+                  if (message.includes('Could not save screenshot') ||
+                      message.includes('Cannot read properties of undefined (reading \\'length\\')')) {
+                    return;
+                  }
+                }
+                originalConsoleError.apply(console, args);
+              };
+            `,
+          }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

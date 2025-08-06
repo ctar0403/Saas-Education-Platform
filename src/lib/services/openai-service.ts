@@ -173,7 +173,11 @@ Make content engaging and relevant to the cooking/teaching industry.`;
       }
 
       const data = await response.json();
-      const content = data.choices[0]?.message?.content;
+
+      // Defensive array access to prevent index out of bounds errors
+      const choices = Array.isArray(data.choices) ? data.choices : [];
+      const firstChoice = choices.length > 0 ? choices[0] : null;
+      const content = firstChoice?.message?.content;
 
       if (!content) {
         throw new Error('No content generated from OpenAI');

@@ -91,14 +91,14 @@ function PreviewContent() {
   const openEditor = () => {
     const editorParams = new URLSearchParams({
       prompt: prompt,
-      content: JSON.stringify(content),
-      analysis: JSON.stringify(analysis),
+      content: encodeURIComponent(JSON.stringify(content)),
+      analysis: encodeURIComponent(JSON.stringify(analysis)),
       pageId: params.pageId as string,
       source: searchParams.get('source') || 'kadnya-api',
       apiResponse: searchParams.get('apiResponse') || '',
       internal: 'true'
     });
-    window.open(`/visual-editor?${editorParams.toString()}`, '_blank');
+    window.location.href = `/visual-editor?${editorParams.toString()}`;
   };
 
   const shareWebsite = () => {

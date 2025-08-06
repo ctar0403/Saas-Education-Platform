@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
-// Embedded Builder.io Visual Editor
+// Embedded Builder.io Visual Editor with API Integration
 function EmbeddedBuilderEditor() {
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(true);
@@ -33,33 +33,189 @@ function EmbeddedBuilderEditor() {
   const isKadnyaGenerated = searchParams.get('source') === 'kadnya-api';
   const kadnyaApiResponse = searchParams.get('apiResponse');
   const originalPrompt = searchParams.get('prompt');
+  const pageId = searchParams.get('pageId');
+  const contentParam = searchParams.get('content');
+  const analysisParam = searchParams.get('analysis');
+  const isInternal = searchParams.get('internal') === 'true';
 
-  // Your Builder.io space configuration
-  const BUILDER_SPACE_ID = 'dab30bfb91004dd2b3bb838b92ceeb9d';
-  const BUILDER_API_KEY = 'dab30bfb91004dd2b3bb838b92ceeb9d';
-
-  // Initialize with the default space URL immediately
-  const [editorUrl, setEditorUrl] = useState<string>(`https://builder.io/content/${BUILDER_SPACE_ID}`);
+  // Builder.io state
+  const [editorUrl, setEditorUrl] = useState<string>('');
+  const [builderSpaceId, setBuilderSpaceId] = useState<string>('');
+  const [builderPageId, setBuilderPageId] = useState<string>('');
 
   useEffect(() => {
-    // Set loading to false after initial render
-    const timer = setTimeout(() => {
+    // Check if we have Builder.io parameters from URL (already created page)
+    const builderSpace = searchParams.get('builderSpaceId');
+    const builderPage = searchParams.get('builderPageId');
+    const builderEditor = searchParams.get('builderEditorUrl');
+    
+    if (builderEditor) {
+      // Direct Builder.io editor URL provided
+      console.log('🔗 Using provided Builder.io editor URL:', builderEditor);
+      setEditorUrl(builderEditor);
       setIsLoading(false);
-    }, 1000);
+    } else if (builderSpace && builderPage) {
+      // Build editor URL from space and page IDs
+      const url = `https://builder.io/content/${builderSpace}/${builderPage}`;
+      console.log('🔗 Built Builder.io editor URL from IDs:', url);
+      setEditorUrl(url);
+      setBuilderSpaceId(builderSpace);
+      setBuilderPageId(builderPage);
+      setIsLoading(false);
+    } else if (isInternal && pageId && contentParam && analysisParam) {
+      // Legacy: Create Builder.io page for generated content
+      createBuilderPageForGenerated();
+    } else {
+      // Default: Get or create a space for general editing
+      initializeBuilderSpace();
+    }
+  }, [searchParams, isInternal, pageId, contentParam, analysisParam]);
 
-    return () => clearTimeout(timer);
-  }, []);
+  const initializeBuilderSpace = async () => {
+    try {
+      console.log('🔍 Initializing Builder.io space...');
+      
+      const response = await fetch('/api/builder/spaces');
+      const result = await response.json();
+      
+      if (result.success && result.spaces?.length > 0) {
+        const space = result.spaces[0];
+        const url = `https://builder.io/content/${space.id}`;
+        console.log('✅ Using existing Builder.io space:', url);
+        setEditorUrl(url);
+        setBuilderSpaceId(space.id);
+      } else {
+        console.log('🏗️ Creating new Builder.io space...');
+        const createResponse = await fetch('/api/builder/spaces', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: `Website Builder - ${new Date().toISOString().split('T')[0]}`
+          })
+        });
+        
+        const createResult = await createResponse.json();
+        if (createResult.success) {
+          const url = `https://builder.io/content/${createResult.space.id}`;
+          console.log('✅ New Builder.io space created:', url);
+          setEditorUrl(url);
+          setBuilderSpaceId(createResult.space.id);
+        } else {
+          throw new Error(createResult.error || 'Failed to create space');
+        }
+      }
+      
+      setIsLoading(false);
+    } catch (error) {
+      console.error('❌ Error initializing Builder.io space:', error);
+      setError('Failed to initialize Builder.io workspace');
+      setIsLoading(false);
+    }
+  };
+
+  const createBuilderPageForGenerated = async () => {
+    try {
+      console.log('🏗️ Creating Builder.io page for generated website:', pageId);
+      
+      // Parse the generated content and analysis
+      const content = JSON.parse(decodeURIComponent(contentParam!));
+      const analysis = JSON.parse(decodeURIComponent(analysisParam!));
+      
+      // First ensure we have a space
+      const spacesResponse = await fetch('/api/builder/spaces');
+      const spacesResult = await spacesResponse.json();
+      
+      let spaceId = '';
+      if (spacesResult.success && spacesResult.spaces?.length > 0) {
+        spaceId = spacesResult.spaces[0].id;
+      } else {
+        // Create new space
+        const createSpaceResponse = await fetch('/api/builder/spaces', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: `AI Generated Websites - ${new Date().toISOString().split('T')[0]}`
+          })
+        });
+        const createSpaceResult = await createSpaceResponse.json();
+        if (!createSpaceResult.success) {
+          throw new Error('Failed to create Builder.io space');
+        }
+        spaceId = createSpaceResult.space.id;
+      }
+      
+      // Create the page
+      const pageName = `Generated ${analysis.websiteType || 'Website'} - ${pageId.split('-').slice(-1)[0]}`;
+      const pageUrl = `/generated/${pageId}`;
+      
+      const pageResponse = await fetch('/api/builder/pages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          spaceId,
+          name: pageName,
+          url: pageUrl,
+          content,
+          analysis,
+          meta: {
+            title: content.title || pageName,
+            description: content.description || `AI generated ${analysis.websiteType} website`
+          }
+        })
+      });
+      
+      const pageResult = await pageResponse.json();
+      if (pageResult.success) {
+        console.log('✅ Builder.io page created:', pageResult.editorUrl);
+        setEditorUrl(pageResult.editorUrl);
+        setBuilderSpaceId(spaceId);
+        setBuilderPageId(pageResult.page.id);
+      } else {
+        throw new Error(pageResult.error || 'Failed to create page');
+      }
+      
+      setIsLoading(false);
+      
+    } catch (error) {
+      console.error('❌ Error creating Builder.io page:', error);
+      setError('Failed to create Builder.io page for generated website');
+      setIsLoading(false);
+    }
+  };
 
   const createNewPage = async () => {
-    if (!newPageData.name) return;
+    if (!newPageData.name || !builderSpaceId) return;
 
     setIsLoading(true);
     try {
-      // Create a new page entry - for now we'll just navigate to the editor with the page name
-      const pageUrl = `https://builder.io/content/${BUILDER_SPACE_ID}?model=page&name=${encodeURIComponent(newPageData.name)}&url=${encodeURIComponent(newPageData.url || `/${newPageData.name.toLowerCase().replace(/\s+/g, '-')}`)}`;
-      setEditorUrl(pageUrl);
-      setShowCreatePageModal(false);
-      setNewPageData({ name: '', url: '', template: 'page' });
+      const pageUrl = newPageData.url || `/${newPageData.name.toLowerCase().replace(/\s+/g, '-')}`;
+      
+      const response = await fetch('/api/builder/pages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          spaceId: builderSpaceId,
+          name: newPageData.name,
+          url: pageUrl,
+          data: {},
+          modelId: newPageData.template,
+          meta: {
+            title: newPageData.name,
+            description: `${newPageData.name} page`
+          }
+        })
+      });
+      
+      const result = await response.json();
+      if (result.success) {
+        setEditorUrl(result.editorUrl);
+        setBuilderPageId(result.page.id);
+        setShowCreatePageModal(false);
+        setNewPageData({ name: '', url: '', template: 'page' });
+        console.log('✅ New page created:', result.editorUrl);
+      } else {
+        throw new Error(result.error || 'Failed to create page');
+      }
     } catch (error) {
       console.error('Error creating page:', error);
       setError('Failed to create new page. Please try again.');
@@ -126,19 +282,21 @@ function EmbeddedBuilderEditor() {
             </h1>
             <Badge variant="secondary">
               <CheckCircle className="w-3 h-3 mr-1" />
-              Connected to Space
+              Connected with API
             </Badge>
           </div>
 
           <div className="flex items-center gap-3">
-            <Button
-              onClick={() => setShowCreatePageModal(true)}
-              variant="outline"
-              size="sm"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              New Page
-            </Button>
+            {!isInternal && builderSpaceId && (
+              <Button
+                onClick={() => setShowCreatePageModal(true)}
+                variant="outline"
+                size="sm"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                New Page
+              </Button>
+            )}
             <Button
               onClick={copyEditorUrl}
               variant="outline"
@@ -168,26 +326,37 @@ function EmbeddedBuilderEditor() {
             </div>
             <div className="flex-1">
               <h3 className="font-semibold text-indigo-900 mb-2">
-                🎉 {searchParams.get('source') === 'kadnya-api' ? 'Kadnya AI Generated Website' : 'Connected to Builder.io Space!'}
+                🎉 {isInternal ? 'Generated Website Editor' : searchParams.get('source') === 'kadnya-api' ? 'Kadnya AI Generated Website' : 'Builder.io Visual Editor'}
               </h3>
               <p className="text-indigo-800 text-sm mb-3">
-                {searchParams.get('source') === 'kadnya-api'
+                {isInternal
+                  ? 'Your generated website is now available in Builder.io\'s visual editor. You can customize the design, add components, and publish your changes.'
+                  : searchParams.get('source') === 'kadnya-api'
                   ? 'Your website was generated using Kadnya AI. You can now edit it with Builder.io\'s drag-and-drop editor.'
-                  : 'You\'re now connected to the Builder.io visual editor with full access to create and edit content. All your dynamic components are registered and ready for drag-and-drop editing.'
+                  : 'Connected to Builder.io using your private API key. Create and edit pages with the drag-and-drop visual editor.'
                 }
               </p>
               <div className="flex flex-wrap gap-2">
+                {isInternal && (
+                  <Badge className="bg-green-200 text-green-800">
+                    Generated Website Page
+                  </Badge>
+                )}
                 {searchParams.get('source') === 'kadnya-api' && (
                   <Badge className="bg-blue-200 text-blue-800">
                     Generated by Kadnya AI
                   </Badge>
                 )}
-                <Badge className="bg-indigo-200 text-indigo-800">
-                  Space ID: {BUILDER_SPACE_ID.substring(0, 8)}...
-                </Badge>
-                <Badge className="bg-indigo-200 text-indigo-800">
-                  API Key: {BUILDER_API_KEY.substring(0, 8)}...
-                </Badge>
+                {builderPageId && (
+                  <Badge className="bg-purple-200 text-purple-800">
+                    Page ID: {builderPageId.substring(0, 8)}...
+                  </Badge>
+                )}
+                {builderSpaceId && (
+                  <Badge className="bg-indigo-200 text-indigo-800">
+                    Space ID: {builderSpaceId.substring(0, 8)}...
+                  </Badge>
+                )}
                 <Badge variant="outline" className="border-indigo-300 text-indigo-700">
                   Visual Editor: Active
                 </Badge>
@@ -204,8 +373,12 @@ function EmbeddedBuilderEditor() {
             <div className="h-full flex items-center justify-center bg-gray-100">
               <div className="text-center">
                 <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <h3 className="text-lg font-semibold text-gray-700 mb-2">Loading Builder.io Editor</h3>
-                <p className="text-gray-500">Setting up your visual editor...</p>
+                <h3 className="text-lg font-semibold text-gray-700 mb-2">
+                  {isInternal ? 'Creating Builder.io Page...' : 'Setting up Builder.io Editor...'}
+                </h3>
+                <p className="text-gray-500">
+                  {isInternal ? 'Generating page from your AI website...' : 'Preparing your visual editor...'}
+                </p>
               </div>
             </div>
           ) : (
@@ -233,7 +406,7 @@ function EmbeddedBuilderEditor() {
                   </div>
                   <h3 className="text-xl font-semibold text-gray-700 mb-4">Builder.io Visual Editor</h3>
                   <p className="text-gray-500 mb-6">
-                    Access your Builder.io space directly for the best editing experience.
+                    Access your Builder.io workspace directly for the best editing experience.
                   </p>
                   <div className="space-y-3">
                     <Button onClick={openInNewTab} className="w-full">
@@ -241,7 +414,7 @@ function EmbeddedBuilderEditor() {
                       Open Builder.io Editor
                     </Button>
                     <p className="text-sm text-gray-400">
-                      Space: {BUILDER_SPACE_ID.substring(0, 8)}...
+                      {builderPageId ? `Page: ${builderPageId.substring(0, 8)}...` : builderSpaceId ? `Space: ${builderSpaceId.substring(0, 8)}...` : 'Loading...'}
                     </p>
                   </div>
                 </div>
