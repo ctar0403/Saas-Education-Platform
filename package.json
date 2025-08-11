@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "register-components": "node scripts/register-components.js",
+    "verify-builder": "node scripts/verify-setup.js"
   },
   "dependencies": {
     "@builder.io/dev-tools": "^1.7.28",

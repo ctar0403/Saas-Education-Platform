@@ -65,7 +65,18 @@ export class BuilderIOApiService {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
+        let errorText: string;
+        try {
+          // Clone for JSON attempt
+          const jsonClone = response.clone();
+          const errorData = await jsonClone.json();
+          errorText = typeof errorData === 'string' ? errorData : JSON.stringify(errorData);
+        } catch {
+          // If JSON parsing fails, clone again for text
+          const textClone = response.clone();
+          errorText = await textClone.text();
+        }
+
         console.error(`❌ Builder.io API Error (${response.status}):`, errorText);
         return {
           success: false,
@@ -73,9 +84,11 @@ export class BuilderIOApiService {
         };
       }
 
-      const data = await response.json();
+      // Clone for successful response
+      const successClone = response.clone();
+      const data = await successClone.json();
       console.log(`✅ Builder.io API Response:`, data);
-      
+
       return {
         success: true,
         data: data,
@@ -136,24 +149,75 @@ export class BuilderIOApiService {
   }
 
   /**
+   * Create a new Builder.io space
+   */
+  async createSpace(request: CreateSpaceRequest): Promise<{ success: boolean; space?: BuilderSpace; error?: string }> {
+    console.log('🏗️ Creating new Builder.io space:', request.name);
+
+    const result = await this.makeRequest<BuilderSpace>('/spaces', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+
+    if (result.success && result.data) {
+      console.log(`✅ Space created successfully: ${result.data.id}`);
+      return {
+        success: true,
+        space: result.data,
+      };
+    }
+
+    return {
+      success: false,
+      error: result.error || 'Failed to create space',
+    };
+  }
+
+  /**
+   * Get all spaces for the account
+   */
+  async getSpaces(): Promise<{ success: boolean; spaces?: BuilderSpace[]; error?: string }> {
+    console.log('📋 Fetching Builder.io spaces');
+
+    const result = await this.makeRequest<{ results: BuilderSpace[] }>('/spaces');
+
+    if (result.success && result.data) {
+      return {
+        success: true,
+        spaces: result.data.results || [],
+      };
+    }
+
+    return {
+      success: false,
+      error: result.error || 'Failed to fetch spaces',
+    };
+  }
+
+  /**
    * Create a new page in a specific space
    */
   async createPage(
     spaceId: string,
     request: CreatePageRequest
   ): Promise<{ success: boolean; page?: BuilderPage; error?: string }> {
-    console.log(`📄 Creating new page in space ${spaceId}:`, request.name);
+    console.log(`📄 Creating new page:`, request.name);
 
     const pageData = {
       name: request.name,
-      url: request.url,
-      data: request.data,
       published: request.published || 'draft',
-      modelId: request.modelId || 'page',
+      query: [
+        {
+          property: 'urlPath',
+          operator: 'is',
+          value: request.url
+        }
+      ],
+      data: request.data,
       meta: request.meta || {},
     };
 
-    const result = await this.makeRequest<BuilderPage>(`/write/${spaceId}`, {
+    const result = await this.makeRequest<BuilderPage>('/write/page', {
       method: 'POST',
       body: JSON.stringify(pageData),
     });
@@ -271,185 +335,44 @@ export class BuilderIOApiService {
    * Create Builder.io content data structure from generated website
    */
   createBuilderContentFromGenerated(content: any, analysis: any): any {
-    const colorScheme = this.getColorScheme(analysis.colorScheme || 'blue');
-    
+    const features = analysis.features || ['Modern Design', 'Responsive Layout', 'User Friendly'];
+
     return {
       blocks: [
-        // Hero Section
+        // Hero Banner Component
         {
           '@type': '@builder.io/sdk:Element',
-          '@version': 2,
-          id: 'hero-section',
           component: {
-            name: 'Box',
+            name: 'Hero Banner',
             options: {
-              style: {
-                background: `linear-gradient(135deg, ${colorScheme.primary}, ${colorScheme.secondary})`,
-                color: 'white',
-                padding: '80px 20px',
-                textAlign: 'center',
-              },
-            },
-          },
-          children: [
-            {
-              '@type': '@builder.io/sdk:Element',
-              '@version': 2,
-              id: 'hero-title',
-              component: {
-                name: 'Text',
-                options: {
-                  text: content.heroHeading || 'Welcome to Your Website',
-                  style: {
-                    fontSize: '3rem',
-                    fontWeight: 'bold',
-                    marginBottom: '1rem',
-                  },
-                },
-              },
-            },
-            {
-              '@type': '@builder.io/sdk:Element',
-              '@version': 2,
-              id: 'hero-subtitle',
-              component: {
-                name: 'Text',
-                options: {
-                  text: content.heroSubheading || 'Built with AI technology',
-                  style: {
-                    fontSize: '1.25rem',
-                    marginBottom: '2rem',
-                    opacity: 0.9,
-                  },
-                },
-              },
-            },
-            {
-              '@type': '@builder.io/sdk:Element',
-              '@version': 2,
-              id: 'hero-cta',
-              component: {
-                name: 'Button',
-                options: {
-                  text: 'Get Started',
-                  style: {
-                    backgroundColor: 'white',
-                    color: colorScheme.primary,
-                    padding: '12px 24px',
-                    borderRadius: '8px',
-                    fontWeight: 'bold',
-                    border: 'none',
-                    cursor: 'pointer',
-                  },
-                },
-              },
-            },
-          ],
+              title: content.heroHeading || 'Welcome to Your AI Site',
+              subtitle: content.heroSubheading || 'Generated from your prompt',
+              image: 'https://source.unsplash.com/random/1200x600'
+            }
+          }
         },
-        // Features Section
+        // Program Info Component
         {
           '@type': '@builder.io/sdk:Element',
-          '@version': 2,
-          id: 'features-section',
           component: {
-            name: 'Box',
+            name: 'Program Info',
             options: {
-              style: {
-                padding: '60px 20px',
-                backgroundColor: '#f9fafb',
-              },
-            },
-          },
-          children: [
-            {
-              '@type': '@builder.io/sdk:Element',
-              '@version': 2,
-              id: 'features-title',
-              component: {
-                name: 'Text',
-                options: {
-                  text: 'Key Features',
-                  style: {
-                    fontSize: '2.5rem',
-                    fontWeight: 'bold',
-                    textAlign: 'center',
-                    marginBottom: '3rem',
-                    color: '#1f2937',
-                  },
-                },
-              },
-            },
-            {
-              '@type': '@builder.io/sdk:Element',
-              '@version': 2,
-              id: 'features-grid',
-              component: {
-                name: 'Box',
-                options: {
-                  style: {
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-                    gap: '2rem',
-                    maxWidth: '1200px',
-                    margin: '0 auto',
-                  },
-                },
-              },
-              children: (analysis.features || ['Modern Design', 'Responsive Layout', 'User Friendly']).slice(0, 3).map((feature: string, index: number) => ({
-                '@type': '@builder.io/sdk:Element',
-                '@version': 2,
-                id: `feature-${index}`,
-                component: {
-                  name: 'Box',
-                  options: {
-                    style: {
-                      backgroundColor: 'white',
-                      padding: '2rem',
-                      borderRadius: '12px',
-                      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                      textAlign: 'center',
-                    },
-                  },
-                },
-                children: [
-                  {
-                    '@type': '@builder.io/sdk:Element',
-                    '@version': 2,
-                    id: `feature-title-${index}`,
-                    component: {
-                      name: 'Text',
-                      options: {
-                        text: feature,
-                        style: {
-                          fontSize: '1.25rem',
-                          fontWeight: 'bold',
-                          color: colorScheme.primary,
-                          marginBottom: '1rem',
-                        },
-                      },
-                    },
-                  },
-                  {
-                    '@type': '@builder.io/sdk:Element',
-                    '@version': 2,
-                    id: `feature-desc-${index}`,
-                    component: {
-                      name: 'Text',
-                      options: {
-                        text: `Experience the power of ${feature.toLowerCase()} in your website.`,
-                        style: {
-                          color: '#6b7280',
-                          lineHeight: '1.6',
-                        },
-                      },
-                    },
-                  },
-                ],
-              })),
-            },
-          ],
+              heading: 'What You\'ll Get',
+              items: features.map(feature => feature.replace(/&/g, '&amp;'))
+            }
+          }
         },
-      ],
+        // Footer Component
+        {
+          '@type': '@builder.io/sdk:Element',
+          component: {
+            name: 'Footer',
+            options: {
+              text: '© 2025 AI Generated Website'
+            }
+          }
+        }
+      ]
     };
   }
 

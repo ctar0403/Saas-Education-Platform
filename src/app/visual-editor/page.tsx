@@ -48,12 +48,17 @@ function EmbeddedBuilderEditor() {
     const builderSpace = searchParams.get('builderSpaceId');
     const builderPage = searchParams.get('builderPageId');
     const builderEditor = searchParams.get('builderEditorUrl');
-    
+    const source = searchParams.get('source');
+
     if (builderEditor) {
       // Direct Builder.io editor URL provided
       console.log('🔗 Using provided Builder.io editor URL:', builderEditor);
       setEditorUrl(builderEditor);
       setIsLoading(false);
+    } else if (builderPage && source === 'ai-generated') {
+      // AI generated page - need to get space ID first
+      console.log('🔍 Getting space for AI generated page:', builderPage);
+      initializeBuilderSpaceForGeneratedPage(builderPage);
     } else if (builderSpace && builderPage) {
       // Build editor URL from space and page IDs
       const url = `https://builder.io/content/${builderSpace}/${builderPage}`;
@@ -71,41 +76,38 @@ function EmbeddedBuilderEditor() {
     }
   }, [searchParams, isInternal, pageId, contentParam, analysisParam]);
 
+  const initializeBuilderSpaceForGeneratedPage = async (pageId: string) => {
+    try {
+      console.log('🔍 Setting up AI generated page editor:', pageId);
+
+      // For AI generated pages, use the page ID directly with Builder.io's general content URL
+      // This will automatically redirect to the correct space in Builder.io
+      const directUrl = `https://builder.io/content?model=page&entry=${pageId}`;
+      console.log('✅ Built direct Builder.io editor URL:', directUrl);
+
+      setEditorUrl(directUrl);
+      setBuilderPageId(pageId);
+      setIsLoading(false);
+
+    } catch (error) {
+      console.error('❌ Error setting up generated page editor:', error);
+      setError('Failed to load generated page editor');
+      setIsLoading(false);
+    }
+  };
+
   const initializeBuilderSpace = async () => {
     try {
       console.log('🔍 Initializing Builder.io space...');
-      
-      const response = await fetch('/api/builder/spaces');
-      const result = await response.json();
-      
-      if (result.success && result.spaces?.length > 0) {
-        const space = result.spaces[0];
-        const url = `https://builder.io/content/${space.id}`;
-        console.log('✅ Using existing Builder.io space:', url);
-        setEditorUrl(url);
-        setBuilderSpaceId(space.id);
-      } else {
-        console.log('🏗️ Creating new Builder.io space...');
-        const createResponse = await fetch('/api/builder/spaces', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: `Website Builder - ${new Date().toISOString().split('T')[0]}`
-          })
-        });
-        
-        const createResult = await createResponse.json();
-        if (createResult.success) {
-          const url = `https://builder.io/content/${createResult.space.id}`;
-          console.log('✅ New Builder.io space created:', url);
-          setEditorUrl(url);
-          setBuilderSpaceId(createResult.space.id);
-        } else {
-          throw new Error(createResult.error || 'Failed to create space');
-        }
-      }
-      
+
+      // Since spaces API has authentication issues, use a direct approach
+      // Open Builder.io general editor - it will handle space selection
+      const generalUrl = 'https://builder.io/content';
+      console.log('✅ Using Builder.io general editor:', generalUrl);
+
+      setEditorUrl(generalUrl);
       setIsLoading(false);
+
     } catch (error) {
       console.error('❌ Error initializing Builder.io space:', error);
       setError('Failed to initialize Builder.io workspace');
@@ -388,37 +390,65 @@ function EmbeddedBuilderEditor() {
                 className="w-full h-full border-0"
                 title="Builder.io Visual Editor"
                 allow="clipboard-write; fullscreen; microphone; camera; geolocation"
-                sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals allow-top-navigation allow-downloads"
+                sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals allow-top-navigation allow-downloads allow-popups-to-escape-sandbox"
                 referrerPolicy="no-referrer-when-downgrade"
-                onLoad={() => console.log('Builder.io iframe loaded successfully')}
+                onLoad={(e) => {
+                  console.log('Builder.io iframe loaded successfully');
+                  // Check if iframe content is accessible (not blocked by CORS)
+                  setTimeout(() => {
+                    try {
+                      const iframe = e.target as HTMLIFrameElement;
+                      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+                      if (!iframeDoc || iframeDoc.title.includes('Error') || iframeDoc.body?.innerHTML.includes('error')) {
+                        console.warn('Builder.io iframe may be blocked or restricted');
+                        setError('Builder.io editor cannot be embedded. Please open in a new tab for the full experience.');
+                      }
+                    } catch (err) {
+                      console.warn('Builder.io iframe cross-origin restricted (normal behavior)');
+                      // This is expected due to cross-origin restrictions
+                    }
+                  }, 3000);
+                }}
                 onError={(e) => {
                   console.error('Builder.io iframe error:', e);
                   setError('Failed to load Builder.io editor. Please try opening in a new tab.');
                 }}
               />
 
-              {/* Fallback overlay - shows if iframe takes too long */}
-              <div className="absolute inset-0 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center opacity-0 transition-opacity duration-1000"
-                   style={{opacity: isLoading ? 1 : 0, pointerEvents: isLoading ? 'auto' : 'none'}}>
-                <div className="text-center max-w-md p-8">
-                  <div className="w-20 h-20 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                    <ExternalLink className="w-10 h-10 text-indigo-600" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-700 mb-4">Builder.io Visual Editor</h3>
-                  <p className="text-gray-500 mb-6">
-                    Access your Builder.io workspace directly for the best editing experience.
-                  </p>
-                  <div className="space-y-3">
-                    <Button onClick={openInNewTab} className="w-full">
-                      <ExternalLink className="w-4 h-4 mr-2" />
-                      Open Builder.io Editor
-                    </Button>
-                    <p className="text-sm text-gray-400">
-                      {builderPageId ? `Page: ${builderPageId.substring(0, 8)}...` : builderSpaceId ? `Space: ${builderSpaceId.substring(0, 8)}...` : 'Loading...'}
-                    </p>
+              {/* Loading overlay */}
+              {isLoading && (
+                <div className="absolute inset-0 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+                  <div className="text-center max-w-md p-8">
+                    <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <h3 className="text-lg font-semibold text-gray-700 mb-2">Loading Builder.io Editor...</h3>
+                    <p className="text-gray-500">Setting up your visual editing environment</p>
                   </div>
                 </div>
-              </div>
+              )}
+
+              {/* Iframe restriction notice */}
+              {!isLoading && (
+                <div className="absolute top-4 right-4 bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-sm z-10">
+                  <div className="flex items-start gap-3">
+                    <div className="p-1 bg-blue-100 rounded-full">
+                      <ExternalLink className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-blue-900 text-sm mb-1">Best Experience</h4>
+                      <p className="text-blue-800 text-xs mb-2">
+                        For full functionality, open in a new tab if the editor appears restricted.
+                      </p>
+                      <Button
+                        onClick={openInNewTab}
+                        size="sm"
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-7"
+                      >
+                        Open in New Tab
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

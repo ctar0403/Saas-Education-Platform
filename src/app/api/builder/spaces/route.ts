@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import BuilderIOAdminApiService from '@/lib/services/builder-io-admin-api';
+import BuilderIOApiService from '@/lib/services/builder-io-api';
 
 const BUILDER_PRIVATE_API_KEY = 'bpk-1646c514b03e4c47a46d70aedae3e345';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, type } = body;
+    const { name } = body;
 
     if (!name || typeof name !== 'string') {
       return NextResponse.json(
@@ -15,12 +15,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('🏗️ Creating Builder.io space via Admin API:', name);
+    console.log('🏗️ Creating Builder.io space:', name);
 
-    const builderService = new BuilderIOAdminApiService(BUILDER_PRIVATE_API_KEY);
+    const builderService = new BuilderIOApiService(BUILDER_PRIVATE_API_KEY);
     const result = await builderService.createSpace({
       name,
-      type: type || 'Fusion'
+      settings: {}
     });
 
     if (result.success && result.space) {
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
 
     console.error('❌ Failed to create space:', result.error);
     return NextResponse.json(
-      { 
+      {
         success: false,
         error: result.error || 'Failed to create space'
       },
@@ -42,9 +42,9 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('❌ Error in space creation API route:', error);
-    
+
     return NextResponse.json(
-      { 
+      {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error occurred'
       },
@@ -55,9 +55,9 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   try {
-    console.log('📋 Fetching Builder.io spaces via Admin API');
+    console.log('📋 Fetching Builder.io spaces');
 
-    const builderService = new BuilderIOAdminApiService(BUILDER_PRIVATE_API_KEY);
+    const builderService = new BuilderIOApiService(BUILDER_PRIVATE_API_KEY);
     const result = await builderService.getSpaces();
 
     if (result.success && result.spaces) {
@@ -70,7 +70,7 @@ export async function GET() {
 
     console.error('❌ Failed to fetch spaces:', result.error);
     return NextResponse.json(
-      { 
+      {
         success: false,
         error: result.error || 'Failed to fetch spaces'
       },
@@ -79,9 +79,9 @@ export async function GET() {
 
   } catch (error) {
     console.error('❌ Error in spaces fetch API route:', error);
-    
+
     return NextResponse.json(
-      { 
+      {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error occurred'
       },
