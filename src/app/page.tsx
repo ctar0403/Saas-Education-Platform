@@ -242,7 +242,7 @@ export default function Home() {
       </section>
 
       {/* Visual Editor Section */}
-      <section className="py-20 bg-white">
+      <section className="py-20 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
